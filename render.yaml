@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: atlas-agent
+    runtime: node
+    region: oregon
+    rootDir: server
+    buildCommand: npm install -g bun && bun install
+    startCommand: bun run src/server.ts
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: NODE_ENV
+        value: production
+      - key: PROBE_PORT
+        value: 3001

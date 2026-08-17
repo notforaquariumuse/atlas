@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="atlas-backend" content="http://localhost:3001">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>atlas</title>
+<script src="atlas-data.js"></script>
+<style>
+  :root{
+    --bg:#070707;
+    --panel:#0a0a0a;
+    --fg:#e8e8e8;
+    --hair:#262626;
+    --hair-s:#181818;
+    --purple:#b48ad9;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font-family:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+    font-size:15px;line-height:1.7;
+  }
+  ::selection{background:#e8e8e8;color:#000}
+  a{color:var(--fg);text-decoration:none;border-bottom:1px dotted var(--hair)}
+  a:hover{color:#fff;border-bottom-color:#fff}
+
+  .term{display:grid;grid-template-columns:230px 1fr;max-width:1200px;margin:0 auto;min-height:100vh;border-left:1px solid var(--hair);border-right:1px solid var(--hair)}
+
+  /* ---------- right rail = replaced by chat panel ---------- */
+  .rail{display:none}
+  .railhead{margin:0 0 10px;color:var(--purple);font-weight:700}
+
+  /* ---------- left rail = direction ---------- */
+  .dirs{border-right:1px solid var(--hair);padding:28px 12px;background:var(--panel);font-size:14px}
+  .dirs p{margin:0 0 8px}
+  .counts{border-top:1px dotted var(--hair-s);border-bottom:1px dotted var(--hair-s);padding:8px 0;margin:12px 0}
+  .notes{margin-top:12px}
+  .notes b{font-weight:700}
+  .notes div{margin-bottom:6px}
+
+  /* ---------- main ---------- */
+  .main{padding:46px 36px 90px}
+  .head{margin:0 0 26px;color:var(--purple);font-weight:700}
+
+  /* ---------- hero ---------- */
+  .atlas-hero{margin-top:80px;text-align:center;animation:fadeUp .8s ease}
+  .hero-art{color:#333;font-size:13px;line-height:1.3;margin:0 0 24px;display:inline-block;text-align:left}
+  .hero-sub{color:#555;font-size:14px;margin:0 auto;max-width:440px;line-height:1.8}
+  .hero-sub b{color:var(--purple)}
+  .atlas-hero.hidden{display:none}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+  /* ---------- a plate / a city ---------- */
+  .plateview{margin-top:34px;border-top:1px solid var(--hair);padding-top:14px}
+  .pvtitle{margin:0 0 4px;font-weight:700}
+  .pvepi{margin:0 0 14px;color:#9a9a9a}
+  .pvc{border:1px solid var(--hair-s);padding:8px 12px;margin-bottom:12px}
+  .pvc .dim{color:#9a9a9a}
+  .pvc .pe{color:#8a8a8a;margin:2px 0 6px}
+  iframe{border:1px solid var(--hair);display:block;width:100%;max-width:700px;margin:0 auto}
+
+  /* ---------- chat panel ---------- */
+  #probe-panel {
+    position:fixed;top:0;right:0;bottom:0;z-index:998;
+    width:380px;background:var(--panel);
+    border-left:1px solid var(--hair);
+    font:inherit;font-size:13px;color:var(--fg);
+    display:flex;flex-direction:column;
+  }
+  #probe-header {
+    padding:14px 14px 10px;border-bottom:1px solid var(--hair);
+    display:flex;align-items:center;gap:8px;
+  }
+  #probe-header .title{color:var(--purple);font-weight:700;flex:1}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:#555}
+  .status-dot.ok{background:#4a4}
+  .status-dot.err{background:#a44}
+  .status-label{font-size:11px;color:#666;margin-left:6px}
+  #probe-messages{flex:1;overflow-y:auto;padding:14px;line-height:1.6;scroll-behavior:smooth}
+  .probe-msg{margin-bottom:12px}
+  .probe-msg.user{color:var(--fg)}
+  .probe-msg.atlas{color:var(--purple)}
+  .probe-msg .lbl{font-weight:700;margin-bottom:2px}
+  .probe-msg .txt{white-space:pre-wrap;word-wrap:break-word}
+  .probe-msg.system{color:#666;font-style:italic;font-size:12px}
+  #probe-typing{color:#555;font-size:12px;padding:4px 14px;display:none}
+  #probe-typing.active{display:block}
+  #probe-input-row{display:flex;border-top:1px solid var(--hair)}
+  #probe-input{flex:1;background:none;border:none;color:var(--fg);font:inherit;font-size:13px;padding:12px 14px;outline:none}
+  #probe-input::placeholder{color:#555}
+  #probe-send{background:none;border:none;border-left:1px solid var(--hair);color:var(--purple);font:inherit;font-size:13px;padding:12px 16px;cursor:pointer}
+  #probe-send:hover{color:#fff}
+  .probe-overview{border:1px solid var(--hair);padding:12px;margin-bottom:14px;font-size:12px;line-height:1.6;color:#999}
+  .probe-overview b{color:var(--purple);font-weight:700}
+  .probe-overview .dismiss{display:block;margin-top:8px;color:#555;cursor:pointer;font-size:11px}
+  .probe-overview .dismiss:hover{color:var(--fg)}
+  body{margin-right:380px}
+
+  @media (max-width:720px){
+    .term{grid-template-columns:1fr}
+    .dirs{display:none}
+    .main{padding:34px 20px 80px}
+    #probe-panel{width:100%}
+    body{margin-right:0}
+  }
+</style>
+</head>
+<body>
+<div class="term">
+
+  <aside class="dirs">
+    <p class="railhead">direction</p>
+    <p>tell atlas how you feel. atlas listens and matches you to music from one of 37 emotional territories.</p>
+    <p class="railhead" style="margin-top:14px">what you can do</p>
+    <div class="notes">
+      <div><b>"map this"</b> — match a feeling to a song</div>
+      <div><b>"something louder"</b> — shift the vibe</div>
+      <div><b>"what's the berlin scene"</b> — explore a city</div>
+      <div><b>"more from this artist"</b> — go deeper</div>
+      <div><b>or just talk</b> — atlas listens</div>
+    </div>
+    <p style="margin-top:14px;color:#8a8a8a;font-size:12px">explicit requests override everything. say what you want directly and atlas acts on it.</p>
+    <p class="counts" style="margin-top:14px"><span id="cSongs">…</span> songs<br><span id="cArtists">…</span> artists<br><span id="cPlates">…</span> classifieds</p>
+  </aside>
+
+  <main class="main">
+    <p class="head">atlas</p>
+    <div id="atlas-hero" class="atlas-hero">
+<pre class="hero-art">
+                          .              .
+                 .               .             .
+        .                *                .
+                  .               .
+            .   .  ___           .        .
+                 /   \    .
+    .           |  O  |            .
+          .      \___/     .
+   .         .         .          .
+               .   .         .
+        .            *
+              .          .
+   ──────────── ◇ ─────────────
+              / | \
+             /  |  \
+            /   |   \
+     .     /    |    \     .
+          /  .  |  .  \
+   .     /      |      \     .
+        ◇───────◇───────◇
+         \     / \     /
+          \   /   \   /
+     .      \ /     \ /      .
+              \     /
+               \   /
+                \ /
+                 ◇
+</pre>
+<p class="hero-sub">tell atlas how you feel.<br>atlas listens and matches you to music from one of 37 emotional territories.</p>
+    </div>
+    <div class="plateview" id="plateview" style="display:none"></div>
+  </main>
+
+  <aside class="rail"><div id="plategrid"></div><div id="scenegrid"></div></aside>
+
+</div>
+
+<!-- chat panel (injected into body, outside grid) -->
+<div id="probe-panel">
+  <div id="probe-header">
+    <span class="title">atlas</span>
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-label" id="statusLabel">connecting...</span>
+  </div>
+  <div id="probe-messages"></div>
+  <div id="probe-typing">atlas is listening...</div>
+  <div id="probe-input-row">
+    <input id="probe-input" placeholder="say how you feel..." />
+    <button id="probe-send">send</button>
+  </div>
+</div>
+
+<script>
+/* ---------- atlas engine ---------- */
+var A = window.ATLAS;
+var PLATES = A.plates, TRACKS = A.tracks;
+var byPlate = {};
+TRACKS.forEach(function(t){ (byPlate[t.plate] = byPlate[t.plate] || []).push(t); });
+
+var _arts = {}; TRACKS.forEach(function(t){ _arts[t.artist] = 1; });
+document.getElementById("cSongs").textContent = TRACKS.length.toLocaleString();
+document.getElementById("cArtists").textContent = Object.keys(_arts).length.toLocaleString();
+document.getElementById("cPlates").textContent = PLATES.length;
+
+function hash(s){ var h=2166136261,i; for(i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h,16777619); } return (h>>>0); }
+
+function embed(track, extra){
+  var h = extra || 120;
+  return '<iframe style="height:'+h+'px" src="https://bandcamp.com/EmbeddedPlayer/v=2/track=' + track.id +
+    '/size=large/tracklist=false/artwork=small/" loading="lazy"></iframe>';
+}
+function artistUrl(t){ return "https://" + t.artist + ".bandcamp.com"; }
+function plateById(id){ return PLATES.filter(function(p){ return p.id===id; })[0]; }
+function nameOf(t){ return t.artist.replace(/-/g," "); }
+
+var SHORT = {
+  "GRIEF'S SLOW OAR":"grief's oar",
+  "LULLABY FOR THE VOID":"void lullaby",
+  "ASHES TO ORCHARD":"ashes orchard",
+  "THE ARCHIVE'S NEGLIGEE":"negligee",
+  "THE UNDER CURRENT":"undercurrent"
+};
+function shortName(p){ return SHORT[p.id] || p.name.toLowerCase().replace(/^the\s+/,""); }
+
+var $ = function(id){ return document.getElementById(id); };
+var roll = 0;
+
+function showPlate(id){
+  roll++;
+  var hero = document.getElementById('atlas-hero'); if(hero) hero.classList.add('hidden');
+  var p = plateById(id), tracks = byPlate[id] || [];
+  var v = $("plateview");
+  var html = '<h3 class="pvtitle">'+shortName(p)+'</h3><p class="pvepi">'+p.epigraph+'</p>';
+  var picks = [];
+  var n = Math.min(6, tracks.length);
+  var seed = hash(id + "|" + roll);
+  for(var i=0;i<n;i++){ picks.push(tracks[(seed+i*7919)%tracks.length]); }
+  picks.forEach(function(t){
+    html += '<div class="pvc"><div class="pc">'+t.title+' <span class="dim">— '+nameOf(t)+' · '+t.city+'</span></div><div class="pe">'+t.plate+'</div>'+embed(t)+'</div>';
+  });
+  v.innerHTML = html;
+  v.style.display = "block";
+  v.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function showCity(city){
+  var hero = document.getElementById('atlas-hero'); if(hero) hero.classList.add('hidden');
+  var tracks = TRACKS.filter(function(t){return t.city===city;});
+  var v = $("plateview");
+  var html = '<h3 class="pvtitle">'+city+'</h3>';
+  var seen = {}; var picked = [];
+  while(picked.length<6 && picked.length<tracks.length){
+    var t = tracks[Math.floor(Math.random()*tracks.length)];
+    if(seen[t.id]) continue; seen[t.id]=1; picked.push(t);
+  }
+  picked.forEach(function(t){
+    html += '<div class="pvc"><div class="pc">'+t.title+' <span class="dim">— '+nameOf(t)+'</span></div><div class="pe">'+t.plate+'</div>'+embed(t)+'</div>';
+  });
+  v.innerHTML = html;
+  v.style.display = "block";
+  v.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+/* ---------- chat ---------- */
+(function(){
+  var PROBE = 'http://localhost:3001';
+  var SID_KEY = 'atlas-session-id';
+  var OV_KEY = 'atlas-overview-seen';
+  var sid = localStorage.getItem(SID_KEY);
+  var busy = false;
+
+  var msgs = $('probe-messages');
+  var inp = $('probe-input');
+  var sBtn = $('probe-send');
+  var dot = $('statusDot');
+  var sLbl = $('statusLabel');
+  var typ = $('probe-typing');
+
+  function ensureSid(){
+    if(!sid){ sid='p-'+Math.random().toString(36).slice(2,10); localStorage.setItem(SID_KEY,sid); }
+  }
+
+  function addMsg(role, text){
+    var d = document.createElement('div');
+    d.className = 'probe-msg '+role;
+    var l = role==='atlas'?'atlas':role==='user'?'you':'';
+    d.innerHTML = (l?'<div class="lbl">'+l+':</div>':'')+'<div class="txt">'+esc(text)+'</div>';
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function setStatus(ok, t){ dot.className='status-dot'+(ok?' ok':''); sLbl.textContent=t; }
+
+  function setTyping(on){ busy=on; typ.classList.toggle('active',on); if(on) msgs.scrollTop=msgs.scrollHeight; }
+
+  function showOverview(){
+    if(localStorage.getItem(OV_KEY)) return;
+    var d = document.createElement('div');
+    d.className='probe-overview';
+    d.innerHTML='<b>what atlas does:</b><br>tell atlas how you feel. atlas matches you to music from one of 37 emotional territories.<br><br>'+
+      '<b>what you can ask for:</b><br>&bull; "map this" &mdash; match a feeling to a song<br>'+
+      '&bull; "something louder" / "more tender" &mdash; shift the vibe<br>'+
+      '&bull; "what\'s the berlin scene" &mdash; explore a city<br>'+
+      '&bull; "more from this artist" &mdash; go deeper<br>'+
+      '&bull; or just talk. atlas listens.<br><br>'+
+      '<b>explicit requests override everything.</b><br>'+
+      'say what you want directly and atlas acts on it.<br><br>'+
+      '<span class="dismiss" onclick="this.parentElement.remove();localStorage.setItem(\''+OV_KEY+'\',\'1\')">got it</span>';
+    msgs.insertBefore(d, msgs.firstChild);
+  }
+
+  async function health(){
+    try{
+      var r=await fetch(PROBE+'/health',{signal:AbortSignal.timeout(4000)});
+      var d=await r.json();
+      setStatus(d.status==='ok', d.status==='ok'?'connected':'offline');
+    }catch{ setStatus(false,'offline'); }
+  }
+
+  async function send(text){
+    if(!text){ text=inp.value.trim(); if(!text) return; inp.value=''; }
+    if(busy) return;
+    var hero = document.getElementById('atlas-hero'); if(hero) hero.classList.add('hidden');
+    addMsg('user',text);
+    setTyping(true);
+    ensureSid();
+    try{
+      var r=await fetch(PROBE+'/chat',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({message:text,sessionId:sid})
+      });
+      var d=await r.json();
+      setTyping(false);
+      if(d.reply){ sid=d.sessionId||sid; localStorage.setItem(SID_KEY,sid); addMsg('atlas',d.reply); }
+      else if(d.error){ addMsg('atlas','['+(d.detail||d.error)+']'); }
+    }catch(e){ setTyping(false); addMsg('atlas','[ backend offline — is the server running? ]'); }
+    health();
+  }
+
+  sBtn.addEventListener('click',function(){ send(); });
+  inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
+
+  showOverview();
+  addMsg('atlas',"hey. what's the texture of today?");
+  health();
+  setInterval(health,15000);
+
+  window.atlasProbe={send:send};
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>atlas — pipeline</title>
+<style>
+  :root{
+    --bg:#070707;
+    --panel:#0a0a0a;
+    --fg:#e8e8e8;
+    --hair:#262626;
+    --hair-s:#181818;
+    --purple:#b48ad9;
+    --green:#4a4;
+    --red:#a44;
+    --dim:#8a8a8a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font-family:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+    font-size:14px;line-height:1.7;padding:28px;max-width:900px;
+  }
+  h1{color:var(--purple);font-weight:700;font-size:15px;margin:0 0 20px}
+  a{color:var(--purple);text-decoration:none;border-bottom:1px dotted var(--hair)}
+  a:hover{color:#fff;border-bottom-color:#fff}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+  .stat{border:1px solid var(--hair);padding:12px 14px}
+  .stat .num{font-size:24px;font-weight:700;color:var(--purple)}
+  .stat .lbl{font-size:11px;color:var(--dim);margin-top:2px}
+
+  .section{margin-bottom:24px}
+  .section-head{color:var(--purple);font-weight:700;margin:0 0 10px;font-size:14px}
+  .step{border:1px solid var(--hair);padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+  .step-info{flex:1}
+  .step-name{font-weight:700}
+  .step-desc{font-size:12px;color:var(--dim);margin-top:2px}
+  .step-time{font-size:11px;color:var(--dim);margin-top:2px}
+  .step-btn{
+    background:none;border:1px solid var(--hair);color:var(--fg);
+    font:inherit;font-size:13px;padding:6px 16px;cursor:pointer;white-space:nowrap;
+  }
+  .step-btn:hover{color:#fff;border-color:#fff}
+  .step-btn:disabled{opacity:0.3;cursor:default}
+  .step-btn.running{color:var(--purple);border-color:var(--purple)}
+
+  .proposals{margin-top:10px}
+  .proposal{border:1px solid var(--hair-s);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:12px}
+  .proposal .info{flex:1}
+  .proposal .name{font-weight:700}
+  .proposal .meta{font-size:12px;color:var(--dim)}
+  .proposal .why{font-size:12px;color:#999;font-style:italic;margin-top:2px}
+  .proposal .status{font-size:11px;padding:2px 8px;border:1px solid var(--hair);border-radius:2px}
+  .proposal .status.pending{color:var(--purple);border-color:var(--purple)}
+  .proposal .status.applied{color:var(--green);border-color:var(--green)}
+
+  .log{
+    border:1px solid var(--hair);padding:14px;margin-top:10px;
+    font-size:12px;white-space:pre-wrap;max-height:300px;overflow-y:auto;
+    color:var(--dim);display:none;line-height:1.5;
+  }
+  .log.active{display:block}
+  .log .ok{color:var(--green)}
+  .log .err{color:var(--red)}
+
+  .nav{margin-top:30px;padding-top:14px;border-top:1px solid var(--hair);font-size:12px;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<h1>atlas — pipeline</h1>
+
+<div class="grid" id="stats">
+  <div class="stat"><div class="num" id="sTracks">?</div><div class="lbl">songs in atlas</div></div>
+  <div class="stat"><div class="num" id="sArtists">?</div><div class="lbl">artists on bandcamp</div></div>
+  <div class="stat"><div class="num" id="sPlates">?</div><div class="lbl">emotional territories</div></div>
+  <div class="stat"><div class="num" id="sPending">?</div><div class="lbl">pending proposals</div></div>
+</div>
+
+<div class="section">
+  <p class="section-head">daily flow</p>
+
+  <div class="step">
+    <div class="step-info">
+      <div class="step-name">1. discover</div>
+      <div class="step-desc">asks hermes for new artists targeting the thinnest plates</div>
+      <div class="step-time">slow (~1-2 min)</div>
+    </div>
+    <button class="step-btn" onclick="runStep('discover')">run suggest</button>
+  </div>
+
+  <div id="proposalsBox" class="proposals" style="display:none"></div>
+
+  <div class="step">
+    <div class="step-info">
+      <div class="step-name">2. apply proposals</div>
+      <div class="step-desc">moves approved proposals into the pipeline files</div>
+    </div>
+    <button class="step-btn" onclick="runStep('apply')">apply all</button>
+  </div>
+
+  <div class="step">
+    <div class="step-info">
+      <div class="step-name">3. harvest</div>
+      <div class="step-desc">scrapes bandcamp pages for track metadata</div>
+      <div class="step-time">slow (~5-15 min)</div>
+    </div>
+    <button class="step-btn" onclick="runStep('harvest')">run harvest</button>
+  </div>
+
+  <div class="step">
+    <div class="step-info">
+      <div class="step-name">4. enrich + generate</div>
+      <div class="step-desc">adds plate/energy/brightness scores, rebuilds atlas-data.js</div>
+      <div class="step-time">instant</div>
+    </div>
+    <button class="step-btn" onclick="runStep('rebuild')">rebuild</button>
+  </div>
+</div>
+
+<div class="log" id="log"></div>
+
+<div class="nav">
+  <a href="index.html">back to atlas</a> &middot; pipeline server running on localhost:8080
+</div>
+
+<script>
+var API = 'http://localhost:8080';
+
+async function status() {
+  try {
+    var r = await fetch(API + '/api/status');
+    var d = await r.json();
+    document.getElementById('sTracks').textContent = d.tracks || '?';
+    document.getElementById('sArtists').textContent = d.artists || '?';
+    document.getElementById('sPlates').textContent = d.plates || '?';
+    document.getElementById('sPending').textContent = d.proposals ? d.proposals.pending : '?';
+  } catch(e) {
+    document.getElementById('sTracks').textContent = '?';
+  }
+}
+
+async function proposals() {
+  try {
+    var r = await fetch(API + '/api/proposals');
+    var list = await r.json();
+    var pending = list.filter(function(p){ return p.status === 'pending'; });
+    var box = document.getElementById('proposalsBox');
+    if (pending.length === 0) { box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    var html = '';
+    pending.forEach(function(p) {
+      html += '<div class="proposal">' +
+        '<div class="info">' +
+          '<div class="name">' + p.name + ' <span class="meta">' + p.sub + '.bandcamp.com &middot; ' + p.city + ', ' + p.country + '</span></div>' +
+          '<div class="why">"' + p.why + '"</div>' +
+          '<div class="meta">plate: ' + p.plate + ' &middot; energy: ' + p.energy + ' &middot; lum: ' + p.lum + '</div>' +
+        '</div>' +
+        '<span class="status pending">pending</span>' +
+      '</div>';
+    });
+    box.innerHTML = html;
+  } catch(e) {}
+}
+
+async function runStep(step) {
+  var log = document.getElementById('log');
+  log.className = 'log active';
+  log.textContent = '→ running ' + step + '...\n';
+
+  var url = API + '/api/' + step;
+  var opts = { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' };
+
+  try {
+    var r = await fetch(url, opts);
+    var d = await r.json();
+
+    if (d.results) {
+      d.results.forEach(function(r) {
+        log.innerHTML += '<span class="' + (r.ok?'ok':'err') + '">→ ' + r.step + ': ' + (r.ok?'ok':'FAILED') + '</span>\n';
+        if (r.stdout) log.textContent += r.stdout + '\n';
+        if (r.stderr) log.textContent += r.stderr + '\n';
+      });
+    } else {
+      log.innerHTML += '<span class="' + (d.ok?'ok':'err') + '">→ ' + step + ': ' + (d.ok?'ok':'FAILED') + '</span>\n';
+      if (d.stdout) log.textContent += d.stdout + '\n';
+      if (d.stderr) log.textContent += d.stderr + '\n';
+    }
+  } catch(e) {
+    log.innerHTML += '<span class="err">→ error: ' + e.message + '</span>\n';
+  }
+
+  log.scrollTop = log.scrollHeight;
+  status();
+  proposals();
+}
+
+status();
+proposals();
+</script>
+</body>
+</html>
