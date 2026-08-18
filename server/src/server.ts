@@ -66,43 +66,72 @@ const plateKnowledge = plates
 
 // --- Track matching ---
 
-function findTracksForMessage(userMessage: string): Array<{ id: number; title: string; artist: string; city: string; plate: string }> {
+// Vibe shift words that map to energy levels
+const VIBE_MAP: Record<string, number[]> = {
+  heavier: [4, 5], louder: [4, 5], intense: [4, 5], rage: [5], angry: [5], aggressive: [5], wild: [5], chaotic: [5], noisy: [5], heavy: [4, 5],
+  lighter: [1, 2], softer: [1, 2], tender: [1, 2], gentle: [1, 2], calm: [1, 2], quiet: [1, 2], peaceful: [1, 2], mellow: [2], slow: [1, 2],
+  faster: [4, 5], upbeat: [4, 5], dance: [4, 5], energetic: [4, 5],
+  darker: [1, 2], moodier: [1, 2], sadder: [1, 2], melancholy: [1, 2], bleak: [1],
+  weirder: [3, 4, 5], stranger: [3, 4, 5], experimental: [3, 4, 5], abstract: [3, 4],
+};
+
+function findTracksForMessage(userMessage: string): Array<{ id: number; title: string; artist: string; city: string; plate: string; country: string }> {
   const msg = userMessage.toLowerCase();
+
+  // Check for vibe shift words first
+  let vibeEnergies: number[] | null = null;
+  for (const [word, energies] of Object.entries(VIBE_MAP)) {
+    if (msg.includes(word)) { vibeEnergies = energies; break; }
+  }
 
   // Score each plate by keyword overlap
   const scored: Array<{ plate: string; score: number }> = [];
   for (const p of plates) {
     let score = 0;
-    // Check plate name in message
     if (msg.includes(p.id.toLowerCase())) score += 5;
     if (msg.includes(p.name.toLowerCase())) score += 5;
-    // Check keywords
     for (const kw of p.keywords) {
       if (msg.includes(kw.toLowerCase())) score += 2;
+    }
+    // Bonus for vibe energy match
+    if (vibeEnergies) {
+      const plateTracks = tracksByPlate[p.id] || [];
+      const avgEnergy = plateTracks.length > 0
+        ? plateTracks.reduce((s, t) => s + t.energy, 0) / plateTracks.length
+        : 0;
+      if (vibeEnergies.some(e => Math.abs(avgEnergy - e) < 1.2)) score += 3;
     }
     if (score > 0) scored.push({ plate: p.id, score });
   }
 
-  // Sort by score, take top match
   scored.sort((a, b) => b.score - a.score);
-
   if (scored.length === 0) return [];
 
   const bestPlate = scored[0].plate;
   const pool = tracksByPlate[bestPlate] || [];
   if (pool.length === 0) return [];
 
-  // Pick 2-3 tracks, seeded by simple hash for variety
+  // Pick tracks matching vibe energy if available, otherwise random
   const seed = Date.now();
   const picks: typeof pool = [];
   const used = new Set<number>();
   const count = Math.min(3, pool.length);
-  for (let i = 0; i < count + 10 && picks.length < count; i++) {
-    const idx = (seed + i * 7919) % pool.length;
-    if (!used.has(idx)) { used.add(idx); picks.push(pool[idx]); }
+
+  if (vibeEnergies) {
+    const filtered = pool.filter(t => vibeEnergies!.includes(t.energy));
+    const source = filtered.length >= count ? filtered : pool;
+    for (let i = 0; i < count + 20 && picks.length < count; i++) {
+      const idx = (seed + i * 7919) % source.length;
+      if (!used.has(idx)) { used.add(idx); picks.push(source[idx]); }
+    }
+  } else {
+    for (let i = 0; i < count + 10 && picks.length < count; i++) {
+      const idx = (seed + i * 7919) % pool.length;
+      if (!used.has(idx)) { used.add(idx); picks.push(pool[idx]); }
+    }
   }
 
-  return picks.map(t => ({ id: t.id, title: t.title, artist: t.artist, city: t.city, plate: t.plate }));
+  return picks.map(t => ({ id: t.id, title: t.title, artist: t.artist, city: t.city, plate: t.plate, country: t.country }));
 }
 
 const SYSTEM_PROMPT = `You are Atlas. You live inside a song-mapping site. You listen to how people feel and match them to music — one of 37 emotional territories called "plates," each with its own library of songs.
@@ -243,14 +272,25 @@ async function sendAndReply(sessionId: string, text: string) {
     systemContent += `\n\nMATCHED TRACKS for this message:\n${trackList}\n\nUse these tracks in your response. Mention the track name and artist. The bandcamp embed URL will be shown separately.`;
   }
 
-  const messages = [
+  let messages = [
     { role: 'system', content: systemContent },
     ...session.history.map(m => ({ role: m.role, content: m.content })),
     { role: 'user', content: text },
   ];
 
-  const res = await chatWithGroq(messages);
-  const reply = res.choices?.[0]?.message?.content || '[ no response ]';
+  let res = await chatWithGroq(messages);
+  let reply = res.choices?.[0]?.message?.content?.trim() || '';
+
+  // If empty response, retry once with a simpler prompt
+  if (!reply) {
+    console.warn(`empty response for session ${sessionId}, retrying`);
+    messages = [
+      { role: 'system', content: 'You are Atlas, a music-mapping companion. Respond naturally to the user. Keep it under 80 words. Lowercase.' },
+      { role: 'user', content: text },
+    ];
+    res = await chatWithGroq(messages);
+    reply = res.choices?.[0]?.message?.content?.trim() || '[ something went wrong — try again ]';
+  }
 
   addToHistory(sessionId, 'user', text);
   addToHistory(sessionId, 'assistant', reply);
