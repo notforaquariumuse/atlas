@@ -173,7 +173,7 @@
 
   async function checkHealth() {
     try {
-      var res = await fetch(PROBE_URL + '/health', { signal: AbortSignal.timeout(4000) });
+      var res = await fetch(PROBE_URL + '/health', { signal: AbortSignal.timeout(30000) });
       var data = await res.json();
       connected = (data.status === 'ok');
       setStatus(connected, connected ? 'connected' : 'offline');
@@ -216,7 +216,7 @@
       }
     } catch (err) {
       setTyping(false);
-      addMessage('atlas', '[ backend offline — is the server running? ]');
+      addMessage('atlas', '[ backend waking up — try again in a moment ]');
     }
 
     checkHealth();
