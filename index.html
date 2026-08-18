@@ -78,6 +78,8 @@
     display:flex;align-items:center;gap:8px;
   }
   #probe-header .title{color:var(--purple);font-weight:700;flex:1}
+  .probe-help{color:#555;cursor:pointer;font-size:12px;margin-left:auto;margin-right:8px}
+  .probe-help:hover{color:var(--purple)}
   .status-dot{width:7px;height:7px;border-radius:50%;background:#555}
   .status-dot.ok{background:#4a4}
   .status-dot.err{background:#a44}
@@ -174,6 +176,7 @@
 <div id="probe-panel">
   <div id="probe-header">
     <span class="title">atlas</span>
+    <span class="probe-help" id="probeHelp">what can atlas do?</span>
     <span class="status-dot" id="statusDot"></span>
     <span class="status-label" id="statusLabel">connecting...</span>
   </div>
@@ -258,7 +261,8 @@ function showCity(city){
 
 /* ---------- chat ---------- */
 (function(){
-  var PROBE = 'http://localhost:3001';
+  var meta = document.querySelector('meta[name="atlas-backend"]');
+  var PROBE = meta ? meta.content : 'http://localhost:3001';
   var SID_KEY = 'atlas-session-id';
   var OV_KEY = 'atlas-overview-seen';
   var sid = localStorage.getItem(SID_KEY);
@@ -290,8 +294,10 @@ function showCity(city){
 
   function setTyping(on){ busy=on; typ.classList.toggle('active',on); if(on) msgs.scrollTop=msgs.scrollHeight; }
 
-  function showOverview(){
-    if(localStorage.getItem(OV_KEY)) return;
+  function showOverview(force){
+    if(!force && localStorage.getItem(OV_KEY)) return;
+    var existing = msgs.querySelector('.probe-overview');
+    if(existing) existing.remove();
     var d = document.createElement('div');
     d.className='probe-overview';
     d.innerHTML='<b>what atlas does:</b><br>tell atlas how you feel. atlas matches you to music from one of 37 emotional territories.<br><br>'+
@@ -308,7 +314,7 @@ function showCity(city){
 
   async function health(){
     try{
-      var r=await fetch(PROBE+'/health',{signal:AbortSignal.timeout(4000)});
+      var r=await fetch(PROBE+'/health',{signal:AbortSignal.timeout(30000)});
       var d=await r.json();
       setStatus(d.status==='ok', d.status==='ok'?'connected':'offline');
     }catch{ setStatus(false,'offline'); }
@@ -330,12 +336,15 @@ function showCity(city){
       setTyping(false);
       if(d.reply){ sid=d.sessionId||sid; localStorage.setItem(SID_KEY,sid); addMsg('atlas',d.reply); }
       else if(d.error){ addMsg('atlas','['+(d.detail||d.error)+']'); }
-    }catch(e){ setTyping(false); addMsg('atlas','[ backend offline — is the server running? ]'); }
+    }catch(e){ setTyping(false); addMsg('atlas','[ backend waking up — try again in a moment ]'); }
     health();
   }
 
   sBtn.addEventListener('click',function(){ send(); });
   inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
+
+  var helpBtn = $('probeHelp');
+  if(helpBtn) helpBtn.addEventListener('click',function(){ showOverview(true); });
 
   showOverview();
   addMsg('atlas',"hey. what's the texture of today?");
