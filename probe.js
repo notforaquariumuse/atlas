@@ -71,6 +71,13 @@
   }
   .probe-overview .dismiss:hover { color: var(--fg, #e8e8e8); }
 
+  /* ---- help link in header ---- */
+  .probe-help {
+    color: #555; cursor: pointer; font-size: 12px;
+    margin-left: auto; margin-right: 8px;
+  }
+  .probe-help:hover { color: var(--purple, #b48ad9); }
+
   /* ---- main area adjustment ---- */
   body { margin-right: 380px; }
 </style>
@@ -78,6 +85,7 @@
 <div id="probe-panel">
   <div id="probe-header">
     <span class="title">atlas</span>
+    <span class="probe-help" id="probe-help">what can atlas do?</span>
     <span id="probe-status">
       <span class="dot"></span><span class="label">connecting...</span>
     </span>
@@ -149,8 +157,10 @@
 
   // ---- overview ----
 
-  function showOverview() {
-    if (localStorage.getItem(OVERVIEW_KEY)) return;
+  function showOverview(force) {
+    if (!force && localStorage.getItem(OVERVIEW_KEY)) return;
+    var existing = messagesEl.querySelector('.probe-overview');
+    if (existing) existing.remove();
     var div = document.createElement('div');
     div.className = 'probe-overview';
     div.innerHTML =
@@ -228,6 +238,13 @@
   inputEl.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
+
+  // ---- help link ----
+
+  var helpBtn = document.getElementById('probe-help');
+  if (helpBtn) {
+    helpBtn.addEventListener('click', function() { showOverview(true); });
+  }
 
   // ---- init ----
 
