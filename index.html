@@ -259,6 +259,24 @@ function showCity(city){
   v.scrollIntoView({behavior:"smooth", block:"start"});
 }
 
+function renderTracks(tracks){
+  var hero = document.getElementById('atlas-hero'); if(hero) hero.classList.add('hidden');
+  var v = $("plateview");
+  var html = '<h3 class="pvtitle" style="color:var(--purple)">for you</h3>';
+  tracks.forEach(function(t){
+    var artistLink = 'https://' + t.artist + '.bandcamp.com';
+    html += '<div class="pvc"><div class="pc">'+escHtml(t.title)+' <span class="dim">— '+escHtml(t.artist)+' · '+escHtml(t.city)+'</span></div>'+
+      '<div class="pe">'+escHtml(t.plate)+'</div>'+
+      '<iframe style="height:120px" src="https://bandcamp.com/EmbeddedPlayer/v=2/track='+t.id+
+      '/size=large/tracklist=false/artwork=small/" loading="lazy"></iframe></div>';
+  });
+  v.innerHTML = html;
+  v.style.display = "block";
+  v.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 /* ---------- chat ---------- */
 (function(){
   var meta = document.querySelector('meta[name="atlas-backend"]');
@@ -335,6 +353,7 @@ function showCity(city){
       var d=await r.json();
       setTyping(false);
       if(d.reply){ sid=d.sessionId||sid; localStorage.setItem(SID_KEY,sid); addMsg('atlas',d.reply); }
+      if(d.tracks && d.tracks.length > 0){ renderTracks(d.tracks); }
       else if(d.error){ addMsg('atlas','['+(d.detail||d.error)+']'); }
     }catch(e){ setTyping(false); addMsg('atlas','[ backend waking up — try again in a moment ]'); }
     health();
