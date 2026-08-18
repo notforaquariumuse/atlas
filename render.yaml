@@ -4,7 +4,7 @@ services:
     runtime: node
     region: oregon
     rootDir: server
-    buildCommand: npm install -g bun && bun install
+    buildCommand: npm install -g bun
     startCommand: bun run src/server.ts
     envVars:
       - key: GROQ_API_KEY
