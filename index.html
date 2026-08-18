@@ -105,10 +105,10 @@
 
   /* ---- embed card overlays ---- */
   .embed-card{position:relative;margin-bottom:16px}
-  .embed-overlay{position:absolute;top:0;left:0;right:0;z-index:2;display:flex;gap:8px;padding:6px 8px;background:linear-gradient(180deg,rgba(7,7,7,.92) 60%,transparent);font-size:11px;pointer-events:none}
-  .embed-overlay a,.embed-overlay span.tag{pointer-events:auto;cursor:pointer;color:#888;text-decoration:none;border-bottom:1px dotted #333;transition:color .15s}
-  .embed-overlay a:hover,.embed-overlay span.tag:hover{color:var(--purple);border-bottom-color:var(--purple)}
-  .embed-overlay .tag-plate{color:var(--purple);font-weight:700}
+  .embed-tags{display:flex;gap:8px;padding:4px 0 6px;font-size:11px;flex-wrap:wrap}
+  .embed-tags a,.embed-tags span.tag{cursor:pointer;color:#888;text-decoration:none;border-bottom:1px dotted #333;transition:color .15s}
+  .embed-tags a:hover,.embed-tags span.tag:hover{color:var(--purple);border-bottom-color:var(--purple)}
+  .embed-tags .tag-plate{color:var(--purple);font-weight:700}
 
   body{margin-right:380px}
 
@@ -267,17 +267,16 @@ function showCity(city){
   v.scrollIntoView({behavior:"smooth", block:"start"});
 }
 
-function renderTracks(tracks){
+function renderTracks(tracks, heading){
   var hero = document.getElementById('atlas-hero'); if(hero) hero.classList.add('hidden');
   var v = $("plateview");
-  var html = '<h3 class="pvtitle" style="color:var(--purple)">for you</h3>';
+  var html = '<h3 class="pvtitle" style="color:var(--purple)">'+escHtml(heading||'for you')+'</h3>';
   tracks.forEach(function(t){
     var artistLink = 'https://' + t.artist + '.bandcamp.com';
-    var plateLink = 'javascript:void(0)';
     html += '<div class="embed-card">' +
-      '<div class="embed-overlay">' +
-        '<span class="tag tag-plate" onclick="showPlate(\''+escHtml(t.plate)+'\')">'+escHtml(t.plate)+'</span>' +
-        '<span class="tag">'+escHtml(t.city)+(t.country?' · '+escHtml(t.country):'')+'</span>' +
+      '<div class="embed-tags">' +
+        '<span class="tag tag-plate" onclick="loadPlateTracks(\''+escHtml(t.plate)+'\')">'+escHtml(t.plate)+'</span>' +
+        '<span class="tag" onclick="loadCityTracks(\''+escHtml(t.city)+'\')">'+escHtml(t.city)+(t.country?' · '+escHtml(t.country):'')+'</span>' +
         '<a href="'+artistLink+'" target="_blank" rel="noopener">'+escHtml(t.artist)+' ↗</a>' +
       '</div>' +
       '<iframe style="height:120px;width:100%;border:0" src="https://bandcamp.com/EmbeddedPlayer/v=2/track='+t.id+
@@ -290,6 +289,26 @@ function renderTracks(tracks){
 }
 
 function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function loadPlateTracks(plateId){
+  var meta = document.querySelector('meta[name="atlas-backend"]');
+  var base = meta ? meta.content : 'http://localhost:3001';
+  fetch(base+'/tracks/plate/'+encodeURIComponent(plateId))
+    .then(function(r){return r.json()})
+    .then(function(tracks){
+      if(tracks.length > 0) renderTracks(tracks, plateId.toLowerCase());
+    });
+}
+
+function loadCityTracks(city){
+  var meta = document.querySelector('meta[name="atlas-backend"]');
+  var base = meta ? meta.content : 'http://localhost:3001';
+  fetch(base+'/tracks/city/'+encodeURIComponent(city))
+    .then(function(r){return r.json()})
+    .then(function(tracks){
+      if(tracks.length > 0) renderTracks(tracks, city);
+    });
+}
 
 /* ---------- chat ---------- */
 (function(){

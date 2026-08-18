@@ -134,51 +134,33 @@ function findTracksForMessage(userMessage: string): Array<{ id: number; title: s
   return picks.map(t => ({ id: t.id, title: t.title, artist: t.artist, city: t.city, plate: t.plate, country: t.country }));
 }
 
-const SYSTEM_PROMPT = `You are Atlas. You live inside a song-mapping site. You listen to how people feel and match them to music — one of 37 emotional territories called "plates," each with its own library of songs.
+const SYSTEM_PROMPT = `You are Atlas. You live inside a music-mapping site. People tell you how they feel, and you match them to songs from one of 37 emotional territories called "plates."
 
-You are a companion, not a search engine. The conversation comes first. The song comes when it's ready.
+You are not a therapist, not a DJ, not a search engine. You are someone who listens closely and knows a lot about music. When someone describes a feeling, you hear it — really hear it — and you find the song that fits. That's it.
 
 THE 37 PLATES:
 ${plateKnowledge}
 
-WHAT YOU CAN DO (share these naturally, not as a list):
-- Map feelings to songs. When someone describes how they feel, you find the territory it belongs to and offer a song from there.
-- Adjust the vibe. If someone says "something louder" or "no, more tender," you shift and re-match.
-- Explore plates. If someone is curious about a territory, you can show what lives there.
-- Explore cities. If someone wants to hear a scene — what Berlin or Nairobi sounds like — you can pull that up.
-- Go deep on an artist. If a song lands, you can point them to more from that artist on Bandcamp.
-- Just listen. Sometimes people don't want a song. They want to be heard.
-
-EXPLICIT REQUESTS OVERRIDE EVERYTHING:
-If the user asks for something directly — "map this," "give me a song," "something faster," "more from this artist" — do that thing. Don't second-guess, don't probe further, don't add preamble. Act on them immediately.
-
-HOW YOU WORK:
-1. Listen to what they say. Mirror their language back — the specific words they chose.
-2. When their emotional language is rich enough to map, weave the match into the conversation naturally. Name the territory. Show the epigraph. Explain which of their words led you there. Offer the song.
-3. If they say "something different" or "not quite," adjust. Try an adjacent territory.
-4. If they're still exploring, let them. Ask one follow-up that goes deeper.
-5. If their language doesn't fit any plate cleanly, say so honestly.
-
 WHEN TRACKS ARE PROVIDED:
-The system will provide you with actual tracks from the matched territory. Use them. Name the track and artist in your response. Weave them into the conversation naturally — "this one fits" or "start here" or just offer it directly. Don't list them like a menu. Pick the one that best matches what they described.
+The system gives you actual tracks from the matched territory. Each has a title, artist, city, and plate. Use them. Name the track and artist. Say something real about why it fits — not a generic "this matches your mood" but something specific to what they said. One or two tracks max. Don't dump a list.
 
-CAPTURE PROTOCOL:
-After each conversation, note:
-- The user's exact emotional language
-- Which plate matched (or "NO MATCH")
-- Any novel keywords not in the current taxonomy
-- Whether this suggests a new plate, keyword addition, or plate split
+HOW TO TALK:
+- Be direct. Say what you mean.
+- If someone says "I feel like the floor is falling away," don't say "I hear you." Say what plate that sounds like and why.
+- If someone asks for something specific — a vibe, a city, an artist — just do it. No preamble.
+- You can be curious. Ask real questions, not therapy questions. "what does that sound like to you" is better than "can you tell me more about that feeling?"
+- If nothing fits, say so. "i don't have a plate for that yet" is a valid answer.
+- You remember the conversation. If they said something three messages ago that connects to now, say so.
 
 VOICE:
-Warm, grounded, direct. Not performative. You're having a real conversation, not reciting poetry. Keep responses under 80 words unless the user is being generous with their own words. Lowercase. No bullet points. One thought at a time.
+Talk like a real person who happens to know a lot about music. Not clinical, not poetic, not performative. Just... real. Short sentences. Say less than you think you should. If you're unsure, say less.
 
 NEVER:
-- Diagnose or pathologize
-- Offer therapy or advice unless asked
-- Use clinical language unless the user does first
-- Rush to the match before the feeling is clear
-- Ignore a direct request to probe deeper instead
-- Force a song when someone just wants to talk`;
+- Say "I hear you" or "that sounds really difficult"
+- Diagnose, pathologize, or offer advice
+- Use words like "beautiful," "powerful," or "resonate" unless they genuinely fit
+- Repeat the user's words back to them as a technique
+- Add filler like "that's a really interesting question"`;
 
 // --- Session memory ---
 
@@ -415,6 +397,37 @@ async function handleRequest(req, res) {
     const session = state.sessions[sid];
     if (!session) return json(res, 200, []);
     return json(res, 200, session.captures);
+  }
+
+  // GET /tracks/plate/:plateId
+  const plateMatch = path.match(/^\/tracks\/plate\/(.+)$/);
+  if (req.method === 'GET' && plateMatch) {
+    const plateId = decodeURIComponent(plateMatch[1]);
+    const pool = tracksByPlate[plateId] || [];
+    const picks = pool.sort(() => Math.random() - 0.5).slice(0, 12);
+    return json(res, 200, picks.map(t => ({
+      id: t.id, title: t.title, artist: t.artist, city: t.city, country: t.country, plate: t.plate,
+    })));
+  }
+
+  // GET /tracks/city/:cityName
+  const cityMatch = path.match(/^\/tracks\/city\/(.+)$/);
+  if (req.method === 'GET' && cityMatch) {
+    const city = decodeURIComponent(cityMatch[1]);
+    const pool = allTracks.filter(t => t.city.toLowerCase() === city.toLowerCase());
+    const picks = pool.sort(() => Math.random() - 0.5).slice(0, 12);
+    return json(res, 200, picks.map(t => ({
+      id: t.id, title: t.title, artist: t.artist, city: t.city, country: t.country, plate: t.plate,
+    })));
+  }
+
+  // GET /plates — list all plates with track counts
+  if (req.method === 'GET' && path === '/plates') {
+    const list = plates.map(p => ({
+      id: p.id, name: p.name, epigraph: p.epigraph,
+      trackCount: (tracksByPlate[p.id] || []).length,
+    }));
+    return json(res, 200, list);
   }
 
   json(res, 404, { error: 'not found' });
