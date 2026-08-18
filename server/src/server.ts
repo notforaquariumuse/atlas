@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PROBE_PORT || 3001);
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_BASE_URL = process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1';
-const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
 const MEMORY_DIR = join(__dirname, '../data/probe-memory');
 const STATE_FILE = join(MEMORY_DIR, 'probe-state.json');
@@ -142,7 +142,7 @@ THE 37 PLATES:
 ${plateKnowledge}
 
 WHEN TRACKS ARE PROVIDED:
-The system gives you actual tracks from the matched territory. Each has a title, artist, city, and plate. Use them. Name the track and artist. Say something real about why it fits — not a generic "this matches your mood" but something specific to what they said. One or two tracks max. Don't dump a list.
+The system gives you actual tracks. Each has a title, artist, city, and plate. You MUST use these exact tracks — do NOT make up or suggest tracks that aren't in the provided list. Name the track and artist. Say something real about why it fits. One or two max. Don't dump a list. If no tracks are provided, say "i don't have a track for that right now" and keep talking.
 
 HOW TO TALK:
 - Be direct. Say what you mean.

@@ -109,6 +109,8 @@
   .embed-tags a,.embed-tags span.tag{cursor:pointer;color:#888;text-decoration:none;border-bottom:1px dotted #333;transition:color .15s}
   .embed-tags a:hover,.embed-tags span.tag:hover{color:var(--purple);border-bottom-color:var(--purple)}
   .embed-tags .tag-plate{color:var(--purple);font-weight:700}
+  .embed-back{font-size:12px;color:#666;cursor:pointer;margin-bottom:8px;padding:4px 0}
+  .embed-back:hover{color:var(--purple)}
 
   body{margin-right:380px}
 
@@ -267,16 +269,20 @@ function showCity(city){
   v.scrollIntoView({behavior:"smooth", block:"start"});
 }
 
-function renderTracks(tracks, heading){
+function renderTracks(tracks, heading, backLabel){
   var hero = document.getElementById('atlas-hero'); if(hero) hero.classList.add('hidden');
   var v = $("plateview");
-  var html = '<h3 class="pvtitle" style="color:var(--purple)">'+escHtml(heading||'for you')+'</h3>';
+  var html = '';
+  if(backLabel){
+    html += '<div class="embed-back" onclick="goBackTracks()">← back to '+escHtml(backLabel)+'</div>';
+  }
+  html += '<h3 class="pvtitle" style="color:var(--purple)">'+escHtml(heading||'for you')+'</h3>';
   tracks.forEach(function(t){
     var artistLink = 'https://' + t.artist + '.bandcamp.com';
     html += '<div class="embed-card">' +
       '<div class="embed-tags">' +
-        '<span class="tag tag-plate" onclick="loadPlateTracks(\''+escHtml(t.plate)+'\')">'+escHtml(t.plate)+'</span>' +
-        '<span class="tag" onclick="loadCityTracks(\''+escHtml(t.city)+'\')">'+escHtml(t.city)+(t.country?' · '+escHtml(t.country):'')+'</span>' +
+        '<span class="tag tag-plate" onclick="loadPlateTracks(\''+escHtml(t.plate)+'\',\''+escHtml(heading||'for you')+'\')">'+escHtml(t.plate)+'</span>' +
+        '<span class="tag" onclick="loadCityTracks(\''+escHtml(t.city)+'\',\''+escHtml(heading||'for you')+'\')">'+escHtml(t.city)+(t.country?' · '+escHtml(t.country):'')+'</span>' +
         '<a href="'+artistLink+'" target="_blank" rel="noopener">'+escHtml(t.artist)+' ↗</a>' +
       '</div>' +
       '<iframe style="height:120px;width:100%;border:0" src="https://bandcamp.com/EmbeddedPlayer/v=2/track='+t.id+
@@ -288,25 +294,42 @@ function renderTracks(tracks, heading){
   v.scrollIntoView({behavior:"smooth", block:"start"});
 }
 
+var _trackHistory = [];
+function pushTrackState(label){ _trackHistory.push(label); }
+function goBackTracks(){
+  if(_trackHistory.length > 1){
+    _trackHistory.pop();
+    var prev = _trackHistory[_trackHistory.length-1];
+    if(prev.plate) loadPlateTracks(prev.plate, prev.back);
+    else if(prev.city) loadCityTracks(prev.city, prev.back);
+  } else {
+    _trackHistory = [];
+    $("plateview").style.display = "none";
+    var hero = document.getElementById('atlas-hero'); if(hero) hero.classList.remove('hidden');
+  }
+}
+
 function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function loadPlateTracks(plateId){
+function loadPlateTracks(plateId, backLabel){
   var meta = document.querySelector('meta[name="atlas-backend"]');
   var base = meta ? meta.content : 'http://localhost:3001';
+  pushTrackState({plate:plateId, back:backLabel||null});
   fetch(base+'/tracks/plate/'+encodeURIComponent(plateId))
     .then(function(r){return r.json()})
     .then(function(tracks){
-      if(tracks.length > 0) renderTracks(tracks, plateId.toLowerCase());
+      if(tracks.length > 0) renderTracks(tracks, plateId.toLowerCase(), backLabel);
     });
 }
 
-function loadCityTracks(city){
+function loadCityTracks(city, backLabel){
   var meta = document.querySelector('meta[name="atlas-backend"]');
   var base = meta ? meta.content : 'http://localhost:3001';
+  pushTrackState({city:city, back:backLabel||null});
   fetch(base+'/tracks/city/'+encodeURIComponent(city))
     .then(function(r){return r.json()})
     .then(function(tracks){
-      if(tracks.length > 0) renderTracks(tracks, city);
+      if(tracks.length > 0) renderTracks(tracks, city, backLabel);
     });
 }
 
