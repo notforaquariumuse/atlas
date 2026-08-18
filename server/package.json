@@ -2,7 +2,10 @@
   "name": "atlas-agent",
   "version": "1.0.0",
   "type": "module",
+  "dependencies": {
+    "tsx": "^4.0.0"
+  },
   "scripts": {
-    "start": "bun run src/server.ts"
+    "start": "npx tsx src/server.ts"
   }
 }

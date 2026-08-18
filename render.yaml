@@ -4,8 +4,8 @@ services:
     runtime: node
     region: oregon
     rootDir: server
-    buildCommand: npm install -g bun
-    startCommand: bun run src/server.ts
+    buildCommand: npm install
+    startCommand: npx tsx src/server.ts
     envVars:
       - key: GROQ_API_KEY
         sync: false
