@@ -381,7 +381,7 @@ async function handleRequest(req, res) {
 }
 
 server.listen(PORT, () => {
-  console.log(`Atlas probe server v5 running on http://localhost:${PORT}`);
+  console.log(`Atlas probe server v6 running on http://localhost:${PORT}`);
   console.log(`Provider: Groq | Model: ${MODEL}`);
   if (!GROQ_API_KEY) console.warn('WARNING: GROQ_API_KEY not set — chat will fail');
 });
